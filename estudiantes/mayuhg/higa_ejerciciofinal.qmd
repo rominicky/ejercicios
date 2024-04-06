@@ -1,0 +1,160 @@
+---
+title: "ejerciciofinal"
+format: html
+editor: visual
+---
+
+# Ejercicio Final
+
+Maestría en Humanidades Digitales (UNTREF)
+
+Módulo de Actualización Técnica y Herramientas Digitales
+
+**Alumna**: Mayumi Romina Higa
+
+## Introducción
+
+El presente ejercicio está basado en un dataset pequeño que armé a principios de año para una investigación en curso. La información se extrajo de una tirada preliminar del documento titulado *Análisis de las perspectivas de utilización de las computadoras en el campo bibliográfico y documentario"*, editado en 1969 por el Grupo de Documentación Mecanizada del Centro de Investigaciones Bibliotecológicas de la Universidad de Buenos Aires (UBA), disponible online en formato .pdf en el repositorio de la Universidad. Se destaca por la información brindada en el Apéndice N° II: Registro de equipos de computación instalados en República Argentina (hasta el 31 de diciembre de 1968), relevamiento del cual se desprende el dataset. El mismo fue publicado en Zenodo (DOI: [10.5281/zenodo.10695016](10.5281/zenodo.10695016)) y es de acceso libre.
+
+## 1. Configuración de entorno de trabajo
+
+```{r}
+rm(list = ls()) #limpieza de entorno
+getwd() #ubicación del directorio de trabajo
+setwd("C:/Users/Usuario/Documents/UNTREF/Modulo_Actualizacion/higa_ejerciciofinal") #establezco el nuevo directorio de trabajo
+list.files() #chequeo que estén los archivos que necesito para trabajar
+
+##Cargo las librerías que voy a necesitar:
+library(readr)
+library(tidyverse)
+library(writexl)
+library(ggplot2)
+```
+
+## 2. Importación de archivos
+
+```{r}
+read.csv("inibi_relevamientocomputadoras.csv") #abro la base de datos
+
+inibi <- data.frame(read_csv("inibi_relevamientocomputadoras.csv")) #genero un dataframe
+view(inibi) #compruebo que el dataframe se cargó correctamente
+```
+
+## 3. Exploración del data frame
+
+```{r}
+##usamos algunas funciones exploratorias:
+summary(inibi) #vemos que el dataframe cuenta con pocas variables numéricas (sólo latitud y longitud)
+dim(inibi) #vemos que el dataframe cuenta con 8 variables y 223 registros
+head(inibi, n = 10) #visualizamos las primeras 10 filas
+
+any(is.na(inibi)) #nos confirma que existen celdas vacías (NAs)
+
+inibi %>%
+  summarise_all(~sum(is.na(.))) %>%
+  gather(columna, cantidad_na) %>%
+  filter(cantidad_na > 0)
+
+##vemos que hay 161 celdas vacías sólo en una columna (aplicacion2)
+```
+
+## 4. Manipulación de datos
+
+Algunas preguntas posibles para realizar gráficos que contribuyan a la investigación, serían:
+
+-   ¿Dónde se localizaban las máquinas en 1969? (Georreferenciar)
+
+-   ¿Cuáles eran los modelos más populares? (Filtrar por modelo y graficar con barras)
+
+-   ¿Qué aplicaciones tenían esas computadoras? (Filtrar por aplicación y hacer un gráfico de tortas)
+
+-   Del sector de la administración pública, ¿qué instituciones adquirieron computadoras? (Filtrar por investigación).
+
+### 4.1. Georreferenciación de computadoras
+
+Para este paso utilicé la documentación del paquete mapview: [https://r-spatial.github.io/mapview/articles/mapview_01-basics.htm](https://r-spatial.github.io/mapview/articles/mapview_01-basics.html)
+
+```{r}
+install.packages("leaflet") #instalo el paquete leaflet
+install.packages("mapview") #instalo el paquete mapview que nos permite trabajar con mapas interactivos
+install.packages("leafpop") #instalo el paquete leafpop que nos permite hacer pop-ups con información
+
+library(leaflet) #cargo las librerías
+library(mapview)
+library(leafpop)
+library(dplyr)
+
+#hago el recuento de entidades según ubicación y las ordeno en forma descendente:
+inibi_ubicacion <- inibi %>% 
+  group_by(ubicacion, long, lat) %>% 
+  summarise(nro_entidades = n()) %>%
+  arrange(desc(as.numeric(nro_entidades)))
+
+view(inibi_ubicacion)
+#vemos que la mayor concentración se encuentra en Buenos Aires con 181 entidades
+
+#procedemos a mapear:
+mapview(inibi_ubicacion,
+       xcol = "long", #indico la columna x
+       ycol = "lat", #indico la columna y
+       zcol = "ubicacion", #indico la variable que quiero diferenciar por color
+       cex = "nro_entidades", #indico la variable a partir de la cual establecer el tamaño de los círculos (a mayor nro de entidades en un lugar, más grande será el círculo)
+       crs = 4269, #indico el estándar de proyección WGS84
+       grid = FALSE #saco la grilla que mapview tiene por default
+       )
+
+```
+
+### 4.2. Modelos populares
+
+```{r}
+#Para averiguar cuáles fueron los modelos de computadora más utilizados, utilizo el paquete ggplot
+
+install.packages("ggplot2")
+library(ggplot2)
+
+inibi_modelos <- inibi %>% 
+  group_by(casa, modelo) %>% 
+  summarise(nro_entidades = n()) %>%
+  arrange(desc(as.numeric(nro_entidades)))
+
+View(inibi_modelos)
+          
+
+##graficamos un gráfico de barras horizontal con ggplot
+p<-ggplot(data=inibi_modelos, aes(x=nro_entidades, y=modelo, fill=casa))+
+  geom_bar(stat="identity")+theme_minimal()
+p
+```
+
+### 4.3. Ámbitos de aplicación
+
+```{r}
+##agrupamos el dataset original por aplicación:
+inibi_aplicacion <- inibi %>% 
+  group_by(aplicacion1) %>% 
+  summarise(nro_entidades = n()) %>%
+  arrange(desc(as.numeric(nro_entidades)))
+
+View(inibi_aplicacion)
+
+##hacemos un gráfico de tortas:
+ggplot(inibi_aplicacion, aes(x="", y=nro_entidades, fill=aplicacion1)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  geom_text(aes(label = paste0(nro_entidades, "%")), position = position_stack(vjust=0.5)) +
+  labs(x = NULL, y = NULL, fill = NULL) +
+  theme_void() #elimina el fondo y la grilla
+```
+
+### 4.4. Instituciones de la administración pública con computadoras
+
+```{r}
+#aplico el filtro para obtener un listado de las computadoras en el sector de investigación
+
+inibi_inv <- 
+        inibi %>%
+        filter(aplicacion1 == 'Administración pública')
+
+View(inibi_inv)
+```

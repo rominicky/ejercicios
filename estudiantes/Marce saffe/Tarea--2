@@ -1,0 +1,16 @@
+install.packages("leaflet") #instalo la libreria a trabajar
+library(leaflet) #llamo a la librería que instale
+# Definimos la latitud y longitud de la ubicación específica, para ello fui a Google maps y utilicé mis coordenadas
+lat <- -31.53 #indico la latitud
+
+long <- -68.63 #indico la longitud
+# Asignamos a una nueva variable mapa los datos de mi ubicación
+
+mapa <- leaflet() #creo el objeto mapa para que luego muestre el mapa interactivo.
+
+mapa <- setView(mapa, lng = long, lat = lat, zoom = 12) #Aquí establecemos la vista inicial del mapa, centramos en una ubicación específica, y le indicamos el nivel de zoom
+
+mapa <- addTiles(mapa) #con este comando indicamos que  agregue el tipo de fondo de mapa, esta librería cuenta con varios proveedores y estilos que permiten personalizar el fondo del mapa
+
+# Muestra nuestro mapa interactivo
+mapa

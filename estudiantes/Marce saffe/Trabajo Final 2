@@ -1,0 +1,31 @@
+# Este es un nuevo script de trabajo final
+# Limpiamos el entorno
+rm(list = ls())
+# Obtenemos nuestra ubicación actual
+getwd()
+# Instalamos los paquetes necesarios si no están instalados
+install.packages("tidyverse")
+install.packages("rvest")
+install.packages("stringr")
+# Cargamos los paquetes necesarios
+library(tidyverse)
+library(rvest)
+library(stringr)
+# Definimos la URL base para hacer scraping de un sitio web
+base_url <- "https://listado.mercadolibre.com.ar/libros-para-ni%C3%B1os#D[A:libros%20para%20ni%C3%B1os]"
+# Leemos el contenido HTML de la página web
+webpage <- read_html(base_url)
+
+# Extraemos el texto de los elementos HTML que tienen la clase ".ui-search-item__title"
+libross <- html_nodes(webpage, ".ui-search-item__title")
+libross <- as.character(html_text(libross))
+libross
+# Filtramos las cajas que contienen la palabra "Niños"
+libross_filtradas <- libross[grep("Niños|niño|niño|Niños", libross)]
+# Creamos un vector con la longitud de libross y libros_filtradas
+longitud <- c(length(libross), length(libross_filtradas))
+# Creamos un gráfico de torta con los datos
+pie(longitud,
+    labels = c("Total de libros", "Niños"),
+    main = "Comparación entre total de libros y niños",
+    col = c("purple", "grey"))

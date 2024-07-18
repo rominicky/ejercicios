@@ -1,0 +1,241 @@
+# SCRIPT
+# Manipulación de datos con R
+
+# Recuerda cargar los paquetes o instalarlos si no lo has hecho ####
+
+## Instalar paquete ####
+# Pueden consultar paquetes disponibles en CRAN:
+# https://cran.r-project.org/web/packages/available_packages_by_name.html
+#Debemos utilizar 
+# install.packages("nombre_paquete")
+
+# por ejemplo:
+
+install.packages("readr")
+install.packages("tidyverse")
+
+## Activar paquete ####
+#library(nombre_paquete)
+
+library(readr)
+library(tidyverse)
+
+# IMPORTANTE, REVISAR CARPETA DE TRABAJO DONDE SE ENCUENTRE EL SCRIPT
+# E INDICAR LAS DIRECCIONES CORRESPONDIENTES DE LA BASE DE DATOS
+# SINO CUANDO INTENTEN IMPORTAR LAS BASES DE DATOS 
+# OBTENDRAN ERROR
+
+#Saber donde estamos
+getwd()
+
+# 2) Importar archivos ####
+
+## Online ####
+
+# Vamos a descargar la base de datos desde su sitio web
+#para proceder de dicha forma copiamos los códigos siguientes sin ###
+
+# En esta línea le indicamos el tipo de archivo a decargar
+### temp <-  tempfile(fileext = ".zip")
+
+# A continuación especificamos la url 
+### dataURL <- "https://www.argentina.gob.ar/sites/default/files/2023_generales.zip"
+
+# y luego la forma de descarga, indicando el sitio de descarga, destino, y la forma, wget es para Linux
+### download.file(dataURL, destfile=temp, mode='wb')
+
+#descomprimimos la carpeta
+### unzip("2023_generales.zip")
+
+# nos ubicamos dentro ed la carpeta con los archivos a trabajar
+### setwd("C:\Users\Usuario\Documents\ResultadosElectorales_2023")
+
+#Una vez en la carpeta de generales podemos ubicar el csv que debemos trabajar
+
+#Funcion de RBase
+
+# read.csv("ResultadosElectorales_2023.csv")
+
+#Funcion de readr, generando un dataframe con nuestra base de datos que fue de
+
+elec_2023 <- data.frame(read_csv("ResultadosElectorales_2023.csv"))
+
+## FUNCIONES EXPLORATORIAS
+#Con summary recibimos un resumen de nuestra base de datos
+
+summary(elec_2023)
+
+#ahora observamos la dimensión
+dim(elec_2023)
+
+# le pedimos que muestre las primeras filas
+head(elec_2023, n = 10)
+
+# le pedimos que muestre las últimas filas
+tail(elec_2023, n = 10)
+
+# Si quiero verificar si tengo datos vacíos o NA
+
+any(is.na(elec_2023))
+
+# Verificar en que columnas hay valores NA
+
+col_na <- colSums(is.na(elec_2023)) > 0 
+#busco en que columnas tengo na
+
+colnames(elec_2023)[col_na] 
+# le pido que me indique cuales son esas columnas
+
+#lo podemos hacer más sencillo
+
+elec_2023 %>%
+  summarise_all(~sum(is.na(.))) %>%
+  gather(columna, cantidad_na) %>%
+  filter(cantidad_na > 0)
+
+#En la salida de head(), vemos que esta tabla contiene muchísima información.
+# Para este ejercicio, vamos a seleccionar sólo las columnas que indican el nombre de distrito (distrito_nombre), la mesa de distritos (mesa_electores), el cargo votado (cargo_nombre), el tipo de votos (votos_tipo) y la cantidad de votos (votos_cantidad). 
+# Para eso, vamos a pasarle los nombres de las columnas que queremos seleccionar a la función select().
+# select() también nos permite renombrar columnas escribiendo nuevo nombre = nombre actual.
+
+# Además, el flujo de los datos es el siguiente: el símbolo %>% (conocido como “pipe”) envía el contenido de la variable elec_2023 a la función select(). 
+# select() selecciona las columnas indicadas entre paréntesis y el resultado de esta selección es enviado a la función arrange() que ordena los resultados alfabéticamente siguiendo como prioridad el orden de las columnas indicadas entre paréntesis. 
+# El resultado de esta operación es asignado a la variable elecc_datos.
+# Como habrás notado, en R se estila escribir una operación por línea.
+
+elecc_datos <- 
+  elec_2023 %>%
+  select(distrito = distrito_nombre, mesa = mesa_electores, cargo = cargo_nombre, agrupacion = agrupacion_nombre, tipo = votos_tipo, cant = votos_cantidad) %>%
+  arrange(distrito, cargo, cant)
+
+elecc_datos
+
+#vemos la cantidad de filas
+nrow(elecc_datos)
+
+#vemos la cantidad de columnas que hemos seleccionado
+ncol(elecc_datos)
+
+# si tuviesemos que eliminar datos duplicados, utilizaríamos distinct()
+# sin embargo por el tipo de base que utilizamos no es necesario
+# 
+elecc_datos_sel <- distinct(elecc_datos)
+# 
+nrow(elecc_datos_sel)
+
+#vamos a inspeccionar cuántos votos hay para cada "cargo". En otras palabras, queremos saber cuántos registros hay para cada uno de los diferentes valores de la columna "cargo".
+#Para eso, le indicamos a la función group_by() que se base en la columna "cargo" y redirigimos el resultado a summarise() y n() que producen el conteo
+
+elecc_datos%>%
+  group_by(distrito, agrupacion, cargo) %>%
+  summarise(nro_entidades = n())
+
+#En nuestro dataframe nos interesa la entidad referida a presidente.
+# Vamos a filtrar el dataset para conservar sólo las entidades de tipo ‘PRESIDENTE Y VICE’ usando filter().
+# La columna "tipo" no nos aporta la información en el resultado necesario (las líneas que necesitamos van a tener valor ‘PRESIDENTE Y VICE’), por lo que es mejor eliminarla.
+#¿Cómo borrar una columna de un dataframe? Muy sencillo, usamos select() con el nombre de la columna que queremos eliminar precedido de un signo -.
+# Guardamos en una nueva variable, presidente, el dataframe resultante de estas operaciones.
+
+presidente <- 
+  elecc_datos %>%
+  filter(cargo == 'PRESIDENTE Y VICE') %>%
+  select(-distrito, -tipo)
+
+view(presidente)
+
+presidente
+
+#Si quisiesemos determinar la cantidad de mesas según los tipos de votos, y agregar una columna con un contador, utilizaríamos mutate()
+
+elecc_datos_cont <- elecc_datos %>%
+  group_by(mesa, tipo) %>%   # Agrupa por "mesa" y "tipo"
+  mutate(contador = n()) %>% # Cuenta las filas en cada grupo y crea la columna "contador"
+  ungroup()                  # Desagrupa los datos
+
+elecc_datos_cont
+
+# Verificar los resultados
+head(elecc_datos_cont)
+
+# librería "writexl" es una alternativa a otras librerías de R, como "openxlsx" o "xlsx", que también permiten escribir datos en archivos XLSX
+
+# la cargamos con el sigueinte comando: 
+install.packages("writexl")
+#activamos el paquete
+library(writexl)
+
+# como xlsx writexl::
+write_xlsx(elec_2023,"carpeta/data/elecciones.xlsx")
+
+
+#como csv 
+write.csv(elec_2023, "carpeta/data/elecciones.csv")
+
+# EJERCICIOS ####
+
+
+#1. Cargamos las librerías. Leemos la base de datos
+
+##instalación de una librería que necesito
+install.packages("ggplot2")
+
+#me dice que ya lo tenía
+##ahora la cargo
+
+library(ggplot2)
+
+
+
+#2. Utilizamos algunas de las funciones exploratorias propuestas
+
+## voy a querer ver las primeras 30 filas
+head(elec_2023, n = 30)
+
+##le pido que me muestre las 30 ultimas filas
+
+tail(elec_2023, n = 30)
+
+##ahora comienzo y fin de la variable elecc_datos
+head(elecc_datos, n = 30)
+tail(elecc_datos, n = 30)
+
+
+#3. Describimos brevemente la base de datos (tip tiene NAs? podemos describir estadisticamente alguna columna?)
+
+##La base de datos tiene 23 variables y 5.868.102 entradas. 
+##efectivamente hay NAs
+###   2.664.331 NAs en seccionprovincial_nombre.
+###   3.104.670 NAs en agrupacion_nombre
+###   2.710.180 NAs en lista_numero
+###   5.814.850 NAs en lista_nombre
+
+
+#4. Extraemos todos los registros de algunas columnas. Guardarlo en un nuevo dataframe.
+
+elecc_datos <- 
+  elec_2023 %>%
+  select(distrito = distrito_nombre, mesa = mesa_electores, cargo = cargo_nombre, agrupacion = agrupacion_nombre, tipo = votos_tipo, cant = votos_cantidad) %>%
+  arrange(distrito, cargo, cant, tipo)
+
+nrow(elecc_datos)
+
+elecc_datos <- elecc_datos%>%
+  group_by(agrupacion) %>%
+  summarise(nro_entidades = n()) %>% 
+  arrange(desc(nro_entidades)) 
+
+elecc_datos_top10 <- head(elecc_datos, n = 10)
+
+elecc_datos_top10
+
+#5. Exportaremos el dataFrame como un archivo .csv
+
+
+write.csv(elecc_datos_top10, "midataframe.csv")
+
+
+#6. Podrías realizar algunos gráficos con los datos obtenidos, cómo lo harías?
+
+top10<-ggplot(data=elecc_datos_top10, aes(x=nro_entidades, y=agrupacion))+
+  geom_bar(stat="identity")+theme_minimal()
+top10

@@ -1,0 +1,79 @@
+# Instalar y cargar paquetes (si no los tienes instalados)
+if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(rvest)){install.packages("rvest")}
+
+library(tidyverse)
+library(rvest)
+
+# URL de la página
+url <- "https://es.wikipedia.org/wiki/Anexo:Entidades_federativas_de_M%C3%A9xico"
+
+# Leer el HTML de la página
+pagina <- read_html(url)
+
+# Identificar la tabla
+tabla <- pagina %>%
+  html_node("table.wikitable")
+
+# Extraer los datos
+datos <- tabla %>%
+  html_table()
+
+# Limpiar y transformar los datos
+datos_limpios <- datos %>%
+  slice(-1) %>%
+  rename(
+    Entidad = 1,
+    Abreviatura = 2,
+    Capital = 3,
+    Fecha_de_admision = 4,
+    Superficie_km2 = 5,
+    Poblacion_2020 = 6,
+    IDH = 7
+  ) %>%
+  # Limpieza más robusta para Superficie y Población usando parse_number()
+  mutate(
+    Superficie_km2 = parse_number(Superficie_km2),
+    Poblacion_2020 = parse_number(Poblacion_2020),
+    # Limpiar IDH (quitar corchetes y convertir a numérico)
+    IDH = str_replace(IDH, "\\[.*?\\]", ""),
+    IDH = as.numeric(IDH)
+  )
+
+# Visualizaciones con ggplot2
+
+# 1. Gráfico de barras de Población por Entidad (ordenado descendente)
+grafico_poblacion <- datos_limpios %>%
+  mutate(Entidad = fct_reorder(Entidad, Poblacion_2020)) %>% # Ordena las entidades por población
+  ggplot(aes(x = Entidad, y = Poblacion_2020)) +
+  geom_col(fill = "skyblue", color = "black") +
+  labs(title = "Población por Entidad Federativa (2020)", x = "Entidad", y = "Población") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size=8)) # Rotar etiquetas para mejor legibilidad
+
+print(grafico_poblacion)
+
+# 2. Diagrama de dispersión: Superficie vs. Población
+grafico_dispersion <- datos_limpios %>%
+  ggplot(aes(x = Superficie_km2, y = Poblacion_2020)) +
+  geom_point(color = "blue", size=3) +
+  labs(title = "Relación entre Superficie y Población", x = "Superficie (km²)", y = "Población") +
+  geom_smooth(method = "lm", se = FALSE, color="red")+ #Añade una linea de tendencia lineal
+  theme_bw()
+
+print(grafico_dispersion)
+
+# 3. Histograma de IDH
+grafico_idh <- datos_limpios %>%
+  ggplot(aes(x = IDH)) +
+  geom_histogram(binwidth = 0.02, fill = "lightgreen", color = "black") + # Ajusta el ancho de las barras (binwidth)
+  labs(title = "Distribución del Índice de Desarrollo Humano (IDH)", x = "IDH", y = "Frecuencia")
+
+print(grafico_idh)
+
+# Guardar los datos en un archivo CSV (opcional)
+write_csv(datos_limpios, "entidades_mexico.csv")
+
+#Guardar los gráficos (opcional)
+ggsave("poblacion.png", grafico_poblacion, width = 12, height = 8, units = "in")
+ggsave("superficie_vs_poblacion.png", grafico_dispersion, width = 8, height = 6, units = "in")
+ggsave("idh.png", grafico_idh, width = 8, height = 6, units = "in")
